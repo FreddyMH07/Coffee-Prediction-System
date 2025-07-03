@@ -14,6 +14,7 @@ warnings.filterwarnings('ignore')
 # Try to import ML libraries
 try:
     from xgboost import XGBRegressor
+    from sqlalchemy import create_engine
     from lightgbm import LGBMRegressor
     from catboost import CatBoostRegressor #
     from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor

@@ -1,4 +1,5 @@
 import streamlit as st
+import os 
 import pandas as pd
 import pandas_ta # <-- ✅ Cukup impor library-nya, tidak perlu alias 'ta'
 import numpy as np

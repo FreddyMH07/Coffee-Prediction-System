@@ -137,7 +137,7 @@ class CoffeePredictionSystem:
     def __init__(self):
         # Mengambil URL database dari Environment Variable yang Anda set di Render
         self.db_url = os.getenv('DATABASE_URL')
-        self.table_name = "data_kopi"  # Nama tabel baru di PostgreSQL
+        self.table_name = "kopi_db"  # Nama tabel baru di PostgreSQL
         
         if not self.db_url:
             # Pesan ini akan muncul jika Anda lupa mengatur Environment Variable

@@ -138,7 +138,13 @@ class CoffeePredictionSystem:
         # Mengambil URL database dari Environment Variable yang Anda set di Render
         self.db_url = os.getenv('DATABASE_URL')
         self.table_name = "data_kopi_export_bersih"  # Nama tabel baru di PostgreSQL
-        
+        # PERBAIKAN: Definisikan nama kolom database dalam urutan yang TEPAT
+        self.db_column_order = [
+            'tanggal', 'harga_penutupan', 'harga_pembukaan', 'harga_tertinggi',
+            'harga_terendah', 'volume', 'perubahan_persen', 'perubahan_harga',
+            'hari_minggu', 'range_harian', 'momentum', 'ma3', 'ma7',
+            'google_trend', 'synthesized'
+        ]
         if not self.db_url:
             # Pesan ini akan muncul jika Anda lupa mengatur Environment Variable
             st.error("FATAL: DATABASE_URL environment variable not set.")
@@ -191,8 +197,8 @@ class CoffeePredictionSystem:
             st.write("--- END Debugging clean_data (ERROR) ---")
             return None
 
-        # Cek apakah baris header "Tanggal" masih ada
-        if df.iloc[0, 0] == 'Tanggal':
+        # Ini penting jika data DB Anda masih memiliki header di baris pertama
+        if not df.empty and df.iloc[0, 0] == 'Tanggal':
             st.warning("Removing header row 'Tanggal'.")
             df = df.iloc[1:].reset_index(drop=True)
             st.write(f"DF shape after removing header: {df.shape}")
@@ -204,12 +210,11 @@ class CoffeePredictionSystem:
         #   'google_trend', 'synthesized'
         #]
         # Pastikan jumlah kolom sama sebelum assignment
-        if len(df.columns) == len(column_names):
-            df.columns = column_names
-        else:
-            st.error(f"Column count mismatch after initial load. Expected {len(column_names)}, Got {len(df.columns)}. Cannot assign names.")
-            st.write("--- END Debugging clean_data (ERROR COLUMN COUNT MISMATCH) ---")
-            return None
+        st.write(f"DF columns after initial processing (should be correct from DB SELECT): {df.columns.tolist()}")
+        st.write("DF HEAD after initial processing:")
+        st.dataframe(df.head()) # Tampilkan beberapa baris pertama
+        st.write("DF TAIL after initial processing (check new data):")
+        st.dataframe(df.tail()) # Tampilkan beberapa baris terakhir
 
 
         st.write(f"DF columns after renaming: {df.columns.tolist()}")
@@ -305,16 +310,22 @@ class CoffeePredictionSystem:
         
         try:
             df_new = pd.DataFrame([new_data_dict])
-            # Menggunakan to_sql untuk menambahkan data dengan aman
+                # PERBAIKAN: Susun ulang kolom df_new agar sesuai dengan urutan kolom di database
+            # yang telah Anda definisikan di self.db_column_order
+            # Pastikan self.db_column_order sudah didefinisikan di __init__
+            if hasattr(self, 'db_column_order'):
+                df_new = df_new[self.db_column_order]
+            else:
+                st.error("Internal Error: db_column_order not defined in CoffeePredictionSystem.")
+                return False
+
             df_new.to_sql(self.table_name, self.engine, if_exists='append', index=False)
             return True
-        
-        except Exception as e:
-            st.error(f"Error adding data to PostgreSQL: {e}")
-            return False
             
         except Exception as e:
-            st.error(f"Error adding data: {e}")
+            st.error(f"Error adding data to PostgreSQL: {e}")
+            # Cetak error lebih detail di konsol untuk debugging
+            print(f"DETAIL ERROR adding data: {e}")
             return False
     
     def get_statistics(self, df):
@@ -974,7 +985,7 @@ def main():
             new_open = st.number_input("Opening Price", min_value=0.0, value=2000.0)
             new_high = st.number_input("Highest Price", min_value=0.0, value=2050.0)
             new_low = st.number_input("Lowest Price", min_value=0.0, value=1950.0)
-            new_volume = st.number_input("Volume (In KG)", min_value=0, value=5000)
+            new_volume = st.number_input("Volume (In Tons)", min_value=0, value=5000.0)
             new_google_trend = st.number_input("Google Trend Score (0-100)", min_value=0, max_value=100, 
             value=50  # Gunakan nilai tengah sebagai default
             )
@@ -983,8 +994,10 @@ def main():
                 # Note: True price_change_pct and momentum (based on prev day)
                 # will be calculated in clean_data/create_features after loading ALL data.
                 
-                price_change = new_close - new_open
-                price_change_pct = (price_change / new_open ) if new_open > 0 else 0
+                # price_change ini masih new_close - new_open, bukan perubahan harian
+                temp_price_change = new_close - new_open
+                temp_price_change_pct = (temp_price_change / new_open) if new_open > 0 else 0
+
                 daily_range = new_high - new_low
                 day_of_week = new_date.weekday() + 1
                 
@@ -996,14 +1009,14 @@ def main():
                     'harga_pembukaan': new_open,
                     'harga_tertinggi': new_high,
                     'harga_terendah': new_low,
-                    'volume': new_volume / 1000,
-                    'perubahan_persen': price_change_pct,
-                    'perubahan_harga': price_change,
+                    'volume': new_volume / 1000, # <-- Volume dibagi 1000 untuk konversi ke kg
+                    'perubahan_persen': temp_price_change_pct, # <-- Tanpa *100
+                    'perubahan_harga': temp_price_change, # <-- Biarkan sebagai selisih open-close
                     'hari_minggu': day_of_week,
                     'range_harian': daily_range,
-                    'momentum': price_change_pct, # Placeholder, bisa disesuaikan
-                    'ma3': new_close, # Placeholder
-                    'ma7': new_close, # Placeholder
+                    'momentum': temp_price_change_pct, # Placeholder (akan dihitung ulang di create_features)
+                    'ma3': new_close, # Placeholder (akan dihitung ulang di create_features)
+                    'ma7': new_close, # Placeholder (akan dihitung ulang di create_features)
                     'google_trend': new_google_trend,
                     'synthesized': False
                 }

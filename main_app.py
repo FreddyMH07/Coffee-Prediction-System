@@ -179,16 +179,23 @@ class CoffeePredictionSystem:
     def clean_data(self, df):
         """Clean, validate, and process the raw data with outlier detection."""
         st.toast("Starting data cleaning process...", icon="🧹")
+        st.write("--- Debugging clean_data ---")
+        st.write(f"DF shape before processing: {df.shape}")
+        st.write(f"DF columns before renaming: {df.columns.tolist()}")
 
         # 1. VALIDASI STRUKTUR & PENAMAAN KOLOM
         # =======================================
         expected_cols = 15 # Jumlah kolom yang diharapkan
         if df.shape[1] != expected_cols:
             st.error(f"Data Loading Error: Expected {expected_cols} columns, but found {df.shape[1]}. Please check DB schema.")
+            st.write("--- END Debugging clean_data (ERROR) ---")
             return None
 
+        # Cek apakah baris header "Tanggal" masih ada
         if df.iloc[0, 0] == 'Tanggal':
+            st.warning("Removing header row 'Tanggal'.")
             df = df.iloc[1:].reset_index(drop=True)
+            st.write(f"DF shape after removing header: {df.shape}")
     
         column_names = [
             'tanggal', 'harga_penutupan', 'harga_pembukaan', 'harga_tertinggi', 
@@ -196,7 +203,21 @@ class CoffeePredictionSystem:
             'hari_minggu', 'range_harian', 'momentum', 'ma3', 'ma7', 
             'google_trend', 'synthesized'
         ]
-        df.columns = column_names
+        # Pastikan jumlah kolom sama sebelum assignment
+        if len(df.columns) == len(column_names):
+            df.columns = column_names
+        else:
+            st.error(f"Column count mismatch after initial load. Expected {len(column_names)}, Got {len(df.columns)}. Cannot assign names.")
+            st.write("--- END Debugging clean_data (ERROR COLUMN COUNT MISMATCH) ---")
+            return None
+
+
+        st.write(f"DF columns after renaming: {df.columns.tolist()}")
+        st.write("DF HEAD after renaming:")
+        st.dataframe(df.head()) # Tampilkan beberapa baris pertama
+        st.write("DF TAIL after renaming (check new data):")
+        st.dataframe(df.tail()) # Tampilkan beberapa baris terakhir
+
     
         # 2. KONVERSI TIPE DATA
         # ========================
@@ -211,6 +232,12 @@ class CoffeePredictionSystem:
     
         df['synthesized'] = df['synthesized'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
     
+        st.write("DF HEAD after type conversion:")
+        st.dataframe(df.head())
+        st.write("DF TAIL after type conversion (check new data):")
+        st.dataframe(df.tail())
+        st.write(f"Number of NaNs after type conversion: {df.isnull().sum().sum()}")
+
         # 3. PEMBERSIHAN AWAL & PENGURUTAN
         # =================================
         # Hapus baris jika data tanggal atau harga penutupan tidak valid
@@ -218,6 +245,11 @@ class CoffeePredictionSystem:
         df.sort_values('tanggal', inplace=True)
         df.reset_index(drop=True, inplace=True)
     
+        st.write("DF HEAD after initial dropna and sort:")
+        st.dataframe(df.head())
+        st.write("DF TAIL after initial dropna and sort (check new data):")
+        st.dataframe(df.tail())
+        
         # 4. PENGISIAN NILAI KOSONG (SMART FILL)
         # =======================================
         missing_before = df[numeric_cols].isnull().sum().sum()
@@ -225,27 +257,44 @@ class CoffeePredictionSystem:
         # Gunakan forward fill, cocok untuk time-series (mengambil nilai valid terakhir)
             df[numeric_cols] = df[numeric_cols].fillna(method='ffill')
         # Isi sisa NaN di awal data dengan back fill
-        df[numeric_cols] = df[numeric_cols].fillna(method='bfill')
-        st.toast(f"✨ Filled {missing_before} missing data point(s) using ffill/bfill.", icon="🪄")
-        
+            df[numeric_cols] = df[numeric_cols].fillna(method='bfill')
+            st.toast(f"✨ Filled {missing_before} missing data point(s) using ffill/bfill.", icon="🪄")
+        st.write(f"Number of NaNs after fillna: {df.isnull().sum().sum()}")
+
+        # Sebagai fallback terakhir untuk NaN yang masih tersisa di kolom numerik
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                # Isi NaN dengan median kolom jika masih ada
+                median_val = df[col].median()
+                if pd.isna(median_val): # Jika median_val juga NaN (kolom kosong total)
+                     median_val = 0 # Default ke 0 jika tidak ada data sama sekali
+                df[col] = df[col].fillna(median_val)
+            st.warning(f"⚠️ Kolom '{col}' masih memiliki NaN setelah ffill/bfill, diisi dengan {median_val}.")
+
         # 5. DETEKSI & HAPUS OUTLIER (Z-SCORE)
         # =======================================
         initial_rows = len(df)
         # Pastikan hanya kolom numerik yang ada yang digunakan
         existing_numeric_cols = [col for col in numeric_cols if col in df.columns]
-    
-        # Hitung Z-score pada data numerik
-        z_scores = np.abs(stats.zscore(df[existing_numeric_cols]))
-    
-        # Buat filter untuk data yang bukan outlier (Z-score < 3)
-        non_outlier_mask = (z_scores < 3).all(axis=1)
-        df = df[non_outlier_mask]
-    
+        #Cek apakah ada cukup data untuk Z-score (min 2 data points)
+        if len(df) > 1 and not df[existing_numeric_cols].empty:
+             # Hitung Z-score pada data numerik
+            z_scores = np.abs(stats.zscore(df[existing_numeric_cols]))
+            # Buat filter untuk data yang bukan outlier (Z-score < 3)
+            non_outlier_mask = (z_scores < 3).all(axis=1)
+            df = df[non_outlier_mask]
+        else:
+            st.warning("Not enough data to perform outlier detection or no numeric columns for Z-score.")
+            
         outliers_removed = initial_rows - len(df)
         if outliers_removed > 0:
             st.warning(f"⚠️ Removed {outliers_removed} outlier row(s) to improve data quality.")
-    
+        st.write(f"DF shape after outlier removal: {df.shape}")
+        st.write("DF TAIL after outlier removal (final check):")
+        st.dataframe(df.tail())
+
         st.toast("Data cleaning complete!", icon="✅")
+        st.write("--- END Debugging clean_data ---")
         return df   
     
     def add_new_data(self, new_data_dict):
@@ -290,30 +339,46 @@ class CoffeePredictionSystem:
                     # --- SEMUA FUNGSI LAINNYA DIMULAI DARI SINI (TANPA INDENTASI) ---
 
 def create_features(df):
-    """Create features for machine learning"""
+    """Membuat fitur-fitur untuk machine learning.
+    Fungsi ini akan menghitung ulang fitur-fitur penting
+    seperti perubahan_harga (arah), perubahan_persen, momentum,
+    serta moving averages (ma3, ma7) berdasarkan seluruh data historis
+    yang sudah dimuat dan dibersihkan. """
     features_df = df.copy()
 
+    # Pastikan kolom 'tanggal' adalah tipe datetime dan DataFrame terurut berdasarkan tanggal.
+    # Ini penting untuk perhitungan diff() dan shift() yang akurat.
+    features_df['tanggal'] = pd.to_datetime(features_df['tanggal'])
+    features_df = features_df.sort_values('tanggal').reset_index(drop=True)
 
     # ===================================================================
-    # === BAGIAN BARU: Membuat Fitur 'perubahan_harga' Secara Dinamis ===
+    # === PERBAIKAN & PENGHITUNGAN ULANG FITUR INTI ===
     # ===================================================================
-    # 1. Hitung selisih harga dari hari sebelumnya
-    price_diff = features_df['harga_penutupan'].diff()
 
-    # 2. Terapkan logika Anda: 1=naik, -1=turun, 2=sideways
-    conditions = [
-        price_diff > 0,  # Kondisi untuk harga naik
-        price_diff < 0   # Kondisi untuk harga turun
+    # 1. Hitung ulang 'perubahan_harga' sebagai indikator arah (1=naik, -1=turun, 2=sideways)
+    # Ini akan menimpa kolom 'perubahan_harga' yang mungkin datang dari DB dengan nilai yang salah.
+    # Perhitungan berdasarkan selisih harga penutupan hari ini dengan hari sebelumnya.
+    price_diff_close_prev = features_df['harga_penutupan'].diff()
+    conditions_direction = [
+        price_diff_close_prev > 0,  # Kondisi untuk harga naik
+        price_diff_close_prev < 0   # Kondisi untuk harga turun
     ]
-    choices = [1, -1]
+    choices_direction = [1, -1]
     
-    # Buat kolom baru, jangan timpa kolom lama dari DB untuk perbandingan
     # Default adalah 2 (sideways) untuk kasus di mana selisihnya 0 atau NaN (baris pertama)
-    features_df['arah_harga_aktual'] = np.select(conditions, choices, default=2).astype(int)
-    # ===================================================================
+    features_df['perubahan_harga'] = np.select(conditions_direction, choices_direction, default=2).astype(int)
 
+    # 2. Hitung ulang 'perubahan_persen' (aktual: (harga_penutupan hari ini - harga_penutupan kemarin) / harga_penutupan kemarin)
+    # Ini akan menimpa kolom 'perubahan_persen' yang mungkin datang dari DB dengan nilai yang salah.
+    features_df['perubahan_persen'] = (features_df['harga_penutupan'].diff() / features_df['harga_penutupan'].shift(1))
+    # Isi NaN di baris pertama (karena tidak ada data kemarin) dengan 0
+    features_df['perubahan_persen'].fillna(0, inplace=True)
 
-    
+    # 3. Hitung ulang 'momentum' (menggunakan 'perubahan_persen' yang sudah benar)
+    # Jika definisi momentum Anda sama dengan perubahan persen, gunakan ini.
+    # Jika ada definisi lain, sesuaikan di sini.
+    features_df['momentum'] = features_df['perubahan_persen']
+
     # ===============================================================
     # FITUR BARU & PENYESUAIAN 
     # ===============================================================
@@ -909,14 +974,17 @@ def main():
             new_open = st.number_input("Opening Price", min_value=0.0, value=2000.0)
             new_high = st.number_input("Highest Price", min_value=0.0, value=2050.0)
             new_low = st.number_input("Lowest Price", min_value=0.0, value=1950.0)
-            new_volume = st.number_input("Volume", min_value=0, value=5000)
+            new_volume = st.number_input("Volume (In KG)", min_value=0, value=5000)
             new_google_trend = st.number_input("Google Trend Score (0-100)", min_value=0, max_value=100, 
             value=50  # Gunakan nilai tengah sebagai default
             )
             if st.button("💾 Add Data"):
-                # Calculate derived values
+                # Calculate derived values based on current input
+                # Note: True price_change_pct and momentum (based on prev day)
+                # will be calculated in clean_data/create_features after loading ALL data.
+                
                 price_change = new_close - new_open
-                price_change_pct = (price_change / new_open * 100) if new_open > 0 else 0
+                price_change_pct = (price_change / new_open ) if new_open > 0 else 0
                 daily_range = new_high - new_low
                 day_of_week = new_date.weekday() + 1
                 
@@ -928,7 +996,7 @@ def main():
                     'harga_pembukaan': new_open,
                     'harga_tertinggi': new_high,
                     'harga_terendah': new_low,
-                    'volume': new_volume,
+                    'volume': new_volume / 1000,
                     'perubahan_persen': price_change_pct,
                     'perubahan_harga': price_change,
                     'hari_minggu': day_of_week,

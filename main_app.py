@@ -197,12 +197,12 @@ class CoffeePredictionSystem:
             df = df.iloc[1:].reset_index(drop=True)
             st.write(f"DF shape after removing header: {df.shape}")
     
-        column_names = [
-            'tanggal', 'harga_penutupan', 'harga_pembukaan', 'harga_tertinggi', 
-            'harga_terendah', 'volume', 'perubahan_persen', 'perubahan_harga',
-            'hari_minggu', 'range_harian', 'momentum', 'ma3', 'ma7', 
-            'google_trend', 'synthesized'
-        ]
+        #column_names = [
+        #    'tanggal', 'harga_penutupan', 'harga_pembukaan', 'harga_tertinggi', 
+        #   'harga_terendah', 'volume', 'perubahan_persen', 'perubahan_harga',
+        #   'hari_minggu', 'range_harian', 'momentum', 'ma3', 'ma7', 
+        #   'google_trend', 'synthesized'
+        #]
         # Pastikan jumlah kolom sama sebelum assignment
         if len(df.columns) == len(column_names):
             df.columns = column_names
@@ -264,12 +264,12 @@ class CoffeePredictionSystem:
         # Sebagai fallback terakhir untuk NaN yang masih tersisa di kolom numerik
         for col in numeric_cols:
             if df[col].isnull().any():
-                # Isi NaN dengan median kolom jika masih ada
-                median_val = df[col].median()
-                if pd.isna(median_val): # Jika median_val juga NaN (kolom kosong total)
-                     median_val = 0 # Default ke 0 jika tidak ada data sama sekali
-                df[col] = df[col].fillna(median_val)
-            st.warning(f"⚠️ Kolom '{col}' masih memiliki NaN setelah ffill/bfill, diisi dengan {median_val}.")
+                # Hitung median. Jika kolom seluruhnya NaN, median() akan mengembalikan NaN.
+                calculated_median = df[col].median()
+                # Tentukan nilai pengisi: 0 jika calculated_median adalah NaN, jika tidak gunakan calculated_median
+                fill_value = 0 if pd.isna(calculated_median) else calculated_median
+                df[col] = df[col].fillna(fill_value)
+                st.warning(f"⚠️ Kolom '{col}' masih memiliki NaN setelah ffill/bfill, diisi dengan {fill_value}.")
 
         # 5. DETEKSI & HAPUS OUTLIER (Z-SCORE)
         # =======================================
@@ -284,7 +284,7 @@ class CoffeePredictionSystem:
             non_outlier_mask = (z_scores < 3).all(axis=1)
             df = df[non_outlier_mask]
         else:
-            st.warning("Not enough data to perform outlier detection or no numeric columns for Z-score.")
+            st.info("Tidak cukup data untuk melakukan deteksi outlier atau tidak ada kolom numerik yang relevan.")
             
         outliers_removed = initial_rows - len(df)
         if outliers_removed > 0:

@@ -985,7 +985,7 @@ def main():
             new_open = st.number_input("Opening Price", min_value=0.0, value=2000.0)
             new_high = st.number_input("Highest Price", min_value=0.0, value=2050.0)
             new_low = st.number_input("Lowest Price", min_value=0.0, value=1950.0)
-            new_volume = st.number_input("Volume (In Tons)", min_value=0, value=5000.0)
+            new_volume = st.number_input("Volume (In Tons)", min_value=0.0, value=5000.0)
             new_google_trend = st.number_input("Google Trend Score (0-100)", min_value=0, max_value=100, 
             value=50  # Gunakan nilai tengah sebagai default
             )

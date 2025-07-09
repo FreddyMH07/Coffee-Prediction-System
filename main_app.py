@@ -185,9 +185,6 @@ class CoffeePredictionSystem:
     def clean_data(self, df):
         """Clean, validate, and process the raw data with outlier detection."""
         st.toast("Starting data cleaning process...", icon="🧹")
-        st.write("--- Debugging clean_data ---")
-        st.write(f"DF shape before processing: {df.shape}")
-        st.write(f"DF columns before renaming: {df.columns.tolist()}")
 
         # 1. VALIDASI STRUKTUR & PENAMAAN KOLOM
         # =======================================
@@ -210,18 +207,7 @@ class CoffeePredictionSystem:
         #   'google_trend', 'synthesized'
         #]
         # Pastikan jumlah kolom sama sebelum assignment
-        st.write(f"DF columns after initial processing (should be correct from DB SELECT): {df.columns.tolist()}")
-        st.write("DF HEAD after initial processing:")
-        st.dataframe(df.head()) # Tampilkan beberapa baris pertama
-        st.write("DF TAIL after initial processing (check new data):")
-        st.dataframe(df.tail()) # Tampilkan beberapa baris terakhir
 
-
-        st.write(f"DF columns after renaming: {df.columns.tolist()}")
-        st.write("DF HEAD after renaming:")
-        st.dataframe(df.head()) # Tampilkan beberapa baris pertama
-        st.write("DF TAIL after renaming (check new data):")
-        st.dataframe(df.tail()) # Tampilkan beberapa baris terakhir
 
     
         # 2. KONVERSI TIPE DATA
@@ -931,31 +917,55 @@ def main():
     # Initialize system
     coffee_system = CoffeePredictionSystem()
     
-    # Sidebar
+    # --- KODE UNTUK SIDEBAR APLIKASI ---
     with st.sidebar:
-        st.image("https://drive.google.com/uc?export=view&id=1Zozg5V7n6ERR6jtcej6c7dEaIV8wqqi2", width=160)  #Gambar untuk logo
-        st.markdown("### ⚙️ Prediction Settings")
-        # Tentukan tanggal awal dan tanggal default
-        
+    # 1. BAGIAN HEADER & LOGO
+    # Pastikan file "logo-PTSAG.png" ada di dalam repository GitHub Anda.
+    # Render akan menemukannya secara otomatis saat deploy.
+        st.image("logo-PTSAG.png", width=160)
+        st.markdown("## ☕ Sistem Prediksi Harga Kopi")
+        st.markdown("Menu Pengaturan")
+        st.divider() # Garis pemisah untuk tata letak yang bersih
+
+    # 2. BAGIAN PENGATURAN PREDIKSI
+        st.markdown("#### **Pilih Rentang Waktu Prediksi**")
+
+    # Ambil tanggal hari ini sebagai titik awal
         today = datetime.now().date()
+    
+    # Atur tanggal prediksi default (30 hari dari sekarang)
         default_prediction_date = today + timedelta(days=30)
 
-        # Gunakan st.date_input untuk pilihan kalender
+    # Widget untuk memilih tanggal akhir prediksi
         selected_date = st.date_input(
-            label="🗓️ Prediksi Hingga Tanggal:",
+            label="Prediksi Hingga Tanggal:",
             value=default_prediction_date,
-            min_value=today + timedelta(days=1), # Prediksi minimal untuk besok
-            max_value=today + timedelta(days=365), # Batas prediksi 1 tahun
-            help="Pilih tanggal di masa depan untuk melihat prediksi harga."
+            min_value=today + timedelta(days=1),      # Prediksi minimal untuk besok
+            max_value=today + timedelta(days=365*2),  # Batas prediksi hingga 2 tahun
+            help="Pilih tanggal akhir untuk melihat hasil prediksi harga."
     )
 
-        # Hitung 'days_ahead' secara otomatis dari tanggal yang dipilih
-        if selected_date:
-            days_ahead = (selected_date - today).days
-            st.caption(f"Ini adalah prediksi untuk **{days_ahead}** hari ke depan.")
-        else:
-            days_ahead = 30 # Nilai default jika tidak ada tanggal yang dipilih
+    # 3. PERHITUNGAN DAN FEEDBACK UNTUK PENGGUNA
+    # Logika ini sudah benar. Jika ada selisih, masalahnya bukan di sini.
+    # Feedback yang jelas ini akan membantu Anda melacak masalahnya.
+    if selected_date:
+        days_ahead = (selected_date - today).days
+        
+        # Tampilkan informasi dengan jelas menggunakan st.info atau st.success
+        st.info(
+            f"Prediksi akan dibuat untuk **{days_ahead} hari** ke depan, "
+            f"mulai dari **{today.strftime('%d %B %Y')}** hingga **{selected_date.strftime('%d %B %Y')}**."
+        )
+    else:
+        # Fallback jika terjadi error (meskipun jarang dengan st.date_input)
+        days_ahead = 0 
+        st.error("Tanggal tidak valid. Silakan pilih kembali.")
 
+    # Anda bisa menambahkan tombol untuk memicu prediksi jika perlu
+    # predict_button = st.button("Jalankan Prediksi", type="primary")
+
+        st.divider()
+        st.caption("© 2025 - FM")
         
         prediction_method = st.selectbox(
             "Prediction Method:",

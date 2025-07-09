@@ -924,7 +924,7 @@ def main():
     # Render akan menemukannya secara otomatis saat deploy.
         st.image("logo-PTSAG.png", width=160)
         st.markdown("## ☕ Sistem Prediksi Harga Kopi")
-        st.markdown("Menu Pengaturan")
+        st.markdown("### ⚙️ Prediction Settings")
         st.divider() # Garis pemisah untuk tata letak yang bersih
 
     # 2. BAGIAN PENGATURAN PREDIKSI
@@ -948,24 +948,24 @@ def main():
     # 3. PERHITUNGAN DAN FEEDBACK UNTUK PENGGUNA
     # Logika ini sudah benar. Jika ada selisih, masalahnya bukan di sini.
     # Feedback yang jelas ini akan membantu Anda melacak masalahnya.
-    if selected_date:
-        days_ahead = (selected_date - today).days
+        if selected_date:
+            days_ahead = (selected_date - today).days
         
         # Tampilkan informasi dengan jelas menggunakan st.info atau st.success
-        st.info(
+            st.info(
             f"Prediksi akan dibuat untuk **{days_ahead} hari** ke depan, "
             f"mulai dari **{today.strftime('%d %B %Y')}** hingga **{selected_date.strftime('%d %B %Y')}**."
         )
-    else:
+        else:
         # Fallback jika terjadi error (meskipun jarang dengan st.date_input)
-        days_ahead = 0 
-        st.error("Tanggal tidak valid. Silakan pilih kembali.")
+            days_ahead = 0 
+            st.error("Tanggal tidak valid. Silakan pilih kembali.")
 
     # Anda bisa menambahkan tombol untuk memicu prediksi jika perlu
     # predict_button = st.button("Jalankan Prediksi", type="primary")
 
-        st.divider()
-        st.caption("© 2025 - FM")
+            st.divider()
+            st.caption("© 2025 - FM")
         
         prediction_method = st.selectbox(
             "Prediction Method:",

@@ -223,11 +223,7 @@ class CoffeePredictionSystem:
     
         df['synthesized'] = df['synthesized'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
     
-        st.write("DF HEAD after type conversion:")
-        st.dataframe(df.head())
-        st.write("DF TAIL after type conversion (check new data):")
-        st.dataframe(df.tail())
-        st.write(f"Number of NaNs after type conversion: {df.isnull().sum().sum()}")
+
 
         # 3. PEMBERSIHAN AWAL & PENGURUTAN
         # =================================
@@ -236,10 +232,7 @@ class CoffeePredictionSystem:
         df.sort_values('tanggal', inplace=True)
         df.reset_index(drop=True, inplace=True)
     
-        st.write("DF HEAD after initial dropna and sort:")
-        st.dataframe(df.head())
-        st.write("DF TAIL after initial dropna and sort (check new data):")
-        st.dataframe(df.tail())
+
         
         # 4. PENGISIAN NILAI KOSONG (SMART FILL)
         # =======================================

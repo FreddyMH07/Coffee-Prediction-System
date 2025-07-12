@@ -260,27 +260,40 @@ class CoffeePredictionSystem:
         initial_rows = len(df)
         # Pastikan hanya kolom numerik yang ada yang digunakan
         existing_numeric_cols = [col for col in numeric_cols if col in df.columns]
-        #Cek apakah ada cukup data untuk Z-score (min 2 data points)
+
+        # Cek apakah ada cukup data untuk Z-score (min 2 data points)
         if len(df) > 1 and not df[existing_numeric_cols].empty:
-             # Hitung Z-score pada data numerik
+            # Hitung Z-score pada data numerik
             z_scores = np.abs(stats.zscore(df[existing_numeric_cols]))
+
             # Buat filter untuk data yang bukan outlier (Z-score < 3)
             non_outlier_mask = (z_scores < 3).all(axis=1)
+            outlier_mask = ~non_outlier_mask
+
+            # --- DEBUG: Tampilkan data yang dianggap outlier (sebelum dihapus) ---
+            if outlier_mask.any():
+                st.warning("‼️ Data yang terdeteksi sebagai outlier dan akan DIHAPUS:")
+                st.dataframe(df[outlier_mask])
+
+            # Hapus outlier
             df = df[non_outlier_mask]
+
         else:
             st.info("Tidak cukup data untuk melakukan deteksi outlier atau tidak ada kolom numerik yang relevan.")
-            
+
         outliers_removed = initial_rows - len(df)
         if outliers_removed > 0:
             st.warning(f"⚠️ Removed {outliers_removed} outlier row(s) to improve data quality.")
+
         st.write(f"DF shape after outlier removal: {df.shape}")
         st.write("DF TAIL after outlier removal (final check):")
         st.dataframe(df.tail())
 
         st.toast("Data cleaning complete!", icon="✅")
         st.write("--- END Debugging clean_data ---")
-        return df   
-    
+        return df
+        
+            
     def add_new_data(self, new_data_dict):
         """Menambahkan data baru ke database PostgreSQL di Render."""
         if not self.engine:

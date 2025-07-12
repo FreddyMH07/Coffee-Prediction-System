@@ -199,7 +199,11 @@ class CoffeePredictionSystem:
             st.warning("Removing header row 'Tanggal'.")
             df = df.iloc[1:].reset_index(drop=True)
             st.write(f"DF shape after removing header: {df.shape}")
-    
+
+        if outlier_mask.any():
+            tanggal_outlier = df.loc[outlier_mask, 'tanggal'].astype(str).tolist()
+            st.warning(f"Tanggal berikut dihapus karena outlier: {', '.join(tanggal_outlier)}")
+
         #column_names = [
         #    'tanggal', 'harga_penutupan', 'harga_pembukaan', 'harga_tertinggi', 
         #   'harga_terendah', 'volume', 'perubahan_persen', 'perubahan_harga',
@@ -1001,7 +1005,7 @@ def main():
             new_open = st.number_input("Opening Price", min_value=0.0, value=2000.0)
             new_high = st.number_input("Highest Price", min_value=0.0, value=2050.0)
             new_low = st.number_input("Lowest Price", min_value=0.0, value=1950.0)
-            new_volume = st.number_input("Volume (In Tons)", min_value=0.0, value=5000.0)
+            new_volume = st.number_input("Volume (In Tons)", min_value=0.0, value=5.0)
             new_google_trend = st.number_input("Google Trend Score (0-100)", min_value=0, max_value=100, 
             value=50  # Gunakan nilai tengah sebagai default
             )
@@ -1030,13 +1034,64 @@ def main():
                     'perubahan_harga': temp_price_change, # <-- Biarkan sebagai selisih open-close
                     'hari_minggu': day_of_week,
                     'range_harian': daily_range,
-                    'momentum': temp_price_change_pct * 100, # Placeholder (akan dihitung ulang di create_features)
+                    'momentum': temp_price_change_pct * 10000, # Placeholder (akan dihitung ulang di create_features)
                     'ma3': new_close, # Placeholder (akan dihitung ulang di create_features)
                     'ma7': new_close, # Placeholder (akan dihitung ulang di create_features)
                     'google_trend': new_google_trend,
                     'synthesized': False
                 }
                 
+            st.markdown("### 📁 Import Data Excel/CSV")
+    uploaded_file = st.file_uploader(
+        "Upload file Excel/CSV:",
+        type=["xlsx", "xls", "csv"],
+        help="Urutan kolom wajib sama dengan sistem. Data akan divalidasi otomatis."
+    )
+
+    # Download template button
+    template_df = pd.DataFrame(columns=coffee_system.db_column_order)
+    template_csv = template_df.to_csv(index=False)
+    st.download_button(
+        label="⬇️ Download Template (CSV)",
+        data=template_csv,
+        file_name="template_import_coffee_data.csv",
+        mime="text/csv"
+    )
+
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df_import = pd.read_csv(uploaded_file)
+            else:
+                df_import = pd.read_excel(uploaded_file)
+        except Exception as e:
+            st.error(f"❌ Gagal membaca file: {e}")
+            df_import = None
+
+        if df_import is not None and not df_import.empty:
+            st.success("✅ Data berhasil dimuat. Preview 5 baris teratas:")
+            st.dataframe(df_import.head())
+            if st.button("🚀 Import Data ke Database", key="import_data_btn"):
+                cleaned_df = coffee_system.clean_data(df_import)
+                if cleaned_df is None or cleaned_df.empty:
+                    st.error("❌ Import gagal: Data tidak valid setelah proses cleaning.")
+                else:
+                    df_existing = coffee_system.load_data()
+                    existing_dates = set(df_existing['tanggal'].dt.strftime("%Y-%m-%d"))
+                    cleaned_df = cleaned_df[~cleaned_df['tanggal'].dt.strftime("%Y-%m-%d").isin(existing_dates)]
+                    if cleaned_df.empty:
+                        st.warning("Semua data yang diimport sudah ada (duplikat tanggal). Tidak ada data baru.")
+                    else:
+                        try:
+                            cleaned_df = cleaned_df[coffee_system.db_column_order]
+                            cleaned_df.to_sql(coffee_system.table_name, coffee_system.engine, if_exists='append', index=False)
+                            st.success(f"Berhasil menambahkan {len(cleaned_df)} baris data baru ke database!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Gagal menyimpan ke database: {e}")
+
+
                 if coffee_system.add_new_data(new_data_dict):
                     st.success("✅ Data added successfully!")
                     st.cache_data.clear()

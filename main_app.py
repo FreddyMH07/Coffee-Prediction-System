@@ -265,6 +265,10 @@ class CoffeePredictionSystem:
         # Pastikan hanya kolom numerik yang ada yang digunakan
         existing_numeric_cols = [col for col in numeric_cols if col in df.columns]
 
+        
+        # Inisialisasi agar selalu ada
+        outlier_mask = pd.Series([False] * len(df))  # Default: semua bukan outlier
+
         # Cek apakah ada cukup data untuk Z-score (min 2 data points)
         if len(df) > 1 and not df[existing_numeric_cols].empty:
             # Hitung Z-score pada data numerik

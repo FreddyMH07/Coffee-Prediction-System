@@ -200,10 +200,6 @@ class CoffeePredictionSystem:
             df = df.iloc[1:].reset_index(drop=True)
             st.write(f"DF shape after removing header: {df.shape}")
 
-        if outlier_mask.any():
-            tanggal_outlier = df.loc[outlier_mask, 'tanggal'].astype(str).tolist()
-            st.warning(f"Tanggal berikut dihapus karena outlier: {', '.join(tanggal_outlier)}")
-
         #column_names = [
         #    'tanggal', 'harga_penutupan', 'harga_pembukaan', 'harga_tertinggi', 
         #   'harga_terendah', 'volume', 'perubahan_persen', 'perubahan_harga',

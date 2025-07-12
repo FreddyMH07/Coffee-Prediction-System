@@ -1012,12 +1012,12 @@ def main():
                     'harga_pembukaan': new_open,
                     'harga_tertinggi': new_high,
                     'harga_terendah': new_low,
-                    'volume': new_volume / 1000, # <-- Volume dibagi 1000 untuk konversi ke kg
+                    'volume': new_volume, # <-- Volume dibagi 1000 untuk konversi ke kg
                     'perubahan_persen': temp_price_change_pct, # <-- Tanpa *100
                     'perubahan_harga': temp_price_change, # <-- Biarkan sebagai selisih open-close
                     'hari_minggu': day_of_week,
                     'range_harian': daily_range,
-                    'momentum': temp_price_change_pct, # Placeholder (akan dihitung ulang di create_features)
+                    'momentum': temp_price_change_pct * 100, # Placeholder (akan dihitung ulang di create_features)
                     'ma3': new_close, # Placeholder (akan dihitung ulang di create_features)
                     'ma7': new_close, # Placeholder (akan dihitung ulang di create_features)
                     'google_trend': new_google_trend,

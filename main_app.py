@@ -353,7 +353,7 @@ def create_features(df):
 
     # Pastikan kolom 'tanggal' adalah tipe datetime dan DataFrame terurut berdasarkan tanggal.
     # Ini penting untuk perhitungan diff() dan shift() yang akurat.
-    features_df['tanggal'] = pd.to_datetime(features_df['tanggal'])
+    features_df['tanggal'] = pd.to_datetime(features_df['tanggal']).dt.date
     features_df = features_df.sort_values('tanggal').reset_index(drop=True)
 
     # ===================================================================
@@ -941,6 +941,7 @@ def main():
 
     # Ambil tanggal hari ini sebagai titik awal
         today = datetime.now().date()
+        df[df['tanggal'] == today] 
     
     # Atur tanggal prediksi default (30 hari dari sekarang)
         default_prediction_date = today + timedelta(days=30)
@@ -1100,6 +1101,7 @@ def main():
     
     # Load data
     with st.spinner("Loading coffee data..."):
+        df['tanggal'] = pd.to_datetime(df['tanggal']).dt.date
         df = coffee_system.load_data()
         
         if df is None or df.empty:
@@ -1449,10 +1451,13 @@ def main():
         elif sort_by == "Price (Low)":
             display_df = display_df.sort_values('harga_penutupan', ascending=True)
         
+        
+
         # Display data
         display_columns = ['tanggal', 'harga_penutupan', 'harga_pembukaan', 'harga_tertinggi', 
                           'harga_terendah', 'volume', 'perubahan_persen', 'synthesized']
         
+        display_df['tanggal'] = pd.to_datetime(display_df['tanggal']).dt.strftime('%Y-%m-%d')
         st.dataframe(display_df[display_columns].head(show_rows), use_container_width=True)
         
         # Export data

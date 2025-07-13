@@ -307,7 +307,7 @@ class CoffeePredictionSystem:
             if isinstance(new_data_dict['tanggal'], pd.Timestamp):
                 new_data_dict['tanggal'] = new_data_dict['tanggal'].date()
                 df_new = pd.DataFrame([new_data_dict])
-                
+
              # ✅ Susun ulang kolom sesuai urutan
             if hasattr(self, 'db_column_order'):
                 df_new = df_new[self.db_column_order]
@@ -940,6 +940,23 @@ def main():
     
     # Initialize system
     coffee_system = CoffeePredictionSystem()
+    # 🟢 LOAD DATA lebih dulu
+    with st.spinner("Loading coffee data..."):
+        df = coffee_system.load_data()
+
+        # Pastikan df sudah dimuat sebelumnya (jika belum, panggil coffee_system.load_data())
+    if df is None or df.empty:
+        st.error("❌ Data belum dimuat.")
+        return
+        
+    # Pastikan tanggal sudah bertipe datetime.date
+    if not pd.api.types.is_datetime64_any_dtype(df['tanggal']):
+        df['tanggal'] = pd.to_datetime(df['tanggal'])
+    df['tanggal'] = df['tanggal'].dt.date
+    
+    # Misal ingin filter data hari ini
+    today = datetime.now().date()
+    df_today = df[df['tanggal'] == today]
     
     # --- KODE UNTUK SIDEBAR APLIKASI ---
     with st.sidebar:
@@ -953,22 +970,8 @@ def main():
 
     # 2. BAGIAN PENGATURAN PREDIKSI
         st.markdown("#### **Pilih Rentang Waktu Prediksi**")
-
-    # Ambil tanggal hari ini sebagai titik awal
-        today = datetime.now().date()
-        # Pastikan df sudah dimuat sebelumnya (jika belum, panggil coffee_system.load_data())
-        if df is None or df.empty:
-            st.error("❌ Data belum dimuat.")
-            return
+        st.info(f"Ada {len(df_today)} data untuk hari ini ({today.strftime('%d %B %Y')})")
         
-        # Pastikan tanggal sudah bertipe datetime.date
-        if not pd.api.types.is_datetime64_any_dtype(df['tanggal']):
-            df['tanggal'] = pd.to_datetime(df['tanggal'])
-
-            df['tanggal'] = df['tanggal'].dt.date
-
-        # Misal ingin filter data hari ini
-        df_today = df[df['tanggal'] == today]
     # Atur tanggal prediksi default (30 hari dari sekarang)
         default_prediction_date = today + timedelta(days=30)
 
@@ -980,6 +983,12 @@ def main():
             max_value=today + timedelta(days=365*2),  # Batas prediksi hingga 2 tahun
             help="Pilih tanggal akhir untuk melihat hasil prediksi harga."
     )
+        if selected_date:
+            days_ahead = (selected_date - today).days
+            st.info(
+                f"Prediksi akan dibuat untuk **{days_ahead} hari** ke depan, "
+                f"mulai dari **{today.strftime('%d %B %Y')}** hingga **{selected_date.strftime('%d %B %Y')}**."
+            )
 
     # 3. PERHITUNGAN DAN FEEDBACK UNTUK PENGGUNA
     # Logika ini sudah benar. Jika ada selisih, masalahnya bukan di sini.

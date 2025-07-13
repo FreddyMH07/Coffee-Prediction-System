@@ -1056,7 +1056,7 @@ def main():
                 file_name="template_import_coffee_data.csv",
                 mime="text/csv"
             )
-
+            df_import = None  # <-- tambahkan inisialisasi ini di sini
             if uploaded_file is not None:
                 try:
                     if uploaded_file.name.endswith('.csv'):

@@ -447,7 +447,8 @@ def create_features(df):
     features_df['price_trend_10'] = features_df['harga_penutupan'].rolling(10).apply(lambda x: 1 if x.iloc[-1] > x.iloc[0] else 0)
     
     # 8. Hapus semua baris yang mengandung NaN setelah membuat fitur
-    return features_df.dropna()
+    features_df = features_df.fillna(method='ffill').fillna(method='bfill').fillna(0)
+    return features_df
 
 # Fungsi untuk menghitung semua metrik
 def evaluate(y_true, y_pred):
@@ -1040,62 +1041,56 @@ def main():
                 }
                 
             st.markdown("### 📁 Import Data Excel/CSV")
-    uploaded_file = st.file_uploader(
-        "Upload file Excel/CSV:",
-        type=["xlsx", "xls", "csv"],
-        help="Urutan kolom wajib sama dengan sistem. Data akan divalidasi otomatis."
-    )
+            uploaded_file = st.file_uploader(
+                "Upload file Excel/CSV:",
+                type=["xlsx", "xls", "csv"],
+                help="Urutan kolom wajib sama dengan sistem. Data akan divalidasi otomatis."
+            )
 
-    # Download template button
-    template_df = pd.DataFrame(columns=coffee_system.db_column_order)
-    template_csv = template_df.to_csv(index=False)
-    st.download_button(
-        label="⬇️ Download Template (CSV)",
-        data=template_csv,
-        file_name="template_import_coffee_data.csv",
-        mime="text/csv"
-    )
+            # Download template button
+            template_df = pd.DataFrame(columns=coffee_system.db_column_order)
+            template_csv = template_df.to_csv(index=False)
+            st.download_button(
+                label="⬇️ Download Template (CSV)",
+                data=template_csv,
+                file_name="template_import_coffee_data.csv",
+                mime="text/csv"
+            )
 
-    if uploaded_file is not None:
-        try:
-            if uploaded_file.name.endswith('.csv'):
-                df_import = pd.read_csv(uploaded_file)
-            else:
-                df_import = pd.read_excel(uploaded_file)
-        except Exception as e:
-            st.error(f"❌ Gagal membaca file: {e}")
-            df_import = None
-
-        if df_import is not None and not df_import.empty:
-            st.success("✅ Data berhasil dimuat. Preview 5 baris teratas:")
-            st.dataframe(df_import.head())
-            if st.button("🚀 Import Data ke Database", key="import_data_btn"):
-                cleaned_df = coffee_system.clean_data(df_import)
-                if cleaned_df is None or cleaned_df.empty:
-                    st.error("❌ Import gagal: Data tidak valid setelah proses cleaning.")
-                else:
-                    df_existing = coffee_system.load_data()
-                    existing_dates = set(df_existing['tanggal'].dt.strftime("%Y-%m-%d"))
-                    cleaned_df = cleaned_df[~cleaned_df['tanggal'].dt.strftime("%Y-%m-%d").isin(existing_dates)]
-                    if cleaned_df.empty:
-                        st.warning("Semua data yang diimport sudah ada (duplikat tanggal). Tidak ada data baru.")
+            if uploaded_file is not None:
+                try:
+                    if uploaded_file.name.endswith('.csv'):
+                        df_import = pd.read_csv(uploaded_file)
                     else:
-                        try:
-                            cleaned_df = cleaned_df[coffee_system.db_column_order]
-                            cleaned_df.to_sql(coffee_system.table_name, coffee_system.engine, if_exists='append', index=False)
-                            st.success(f"Berhasil menambahkan {len(cleaned_df)} baris data baru ke database!")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Gagal menyimpan ke database: {e}")
+                        df_import = pd.read_excel(uploaded_file)
+                except Exception as e:
+                    st.error(f"❌ Gagal membaca file: {e}")
+                    df_import = None
+
+            if df_import is not None and not df_import.empty:
+                st.success("✅ Data berhasil dimuat. Preview 5 baris teratas:")
+                st.dataframe(df_import.head())
+                if st.button("🚀 Import Data ke Database", key="import_data_btn"):
+                    cleaned_df = coffee_system.clean_data(df_import)
+                    if cleaned_df is None or cleaned_df.empty:
+                        st.error("❌ Import gagal: Data tidak valid setelah proses cleaning.")
+                    else:
+                        df_existing = coffee_system.load_data()
+                        existing_dates = set(df_existing['tanggal'].dt.strftime("%Y-%m-%d"))
+                        cleaned_df = cleaned_df[~cleaned_df['tanggal'].dt.strftime("%Y-%m-%d").isin(existing_dates)]
+                        if cleaned_df.empty:
+                            st.warning("Semua data yang diimport sudah ada (duplikat tanggal). Tidak ada data baru.")
+                        else:
+                            try:
+                                cleaned_df = cleaned_df[coffee_system.db_column_order]
+                                cleaned_df.to_sql(coffee_system.table_name, coffee_system.engine, if_exists='append', index=False)
+                                st.success(f"Berhasil menambahkan {len(cleaned_df)} baris data baru ke database!")
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Gagal menyimpan ke database: {e}")
 
 
-                if coffee_system.add_new_data(new_data_dict):
-                    st.success("✅ Data added successfully!")
-                    st.cache_data.clear()
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to add data")
     
     # Load data
     with st.spinner("Loading coffee data..."):

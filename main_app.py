@@ -268,20 +268,18 @@ class CoffeePredictionSystem:
         # Cek apakah ada cukup data untuk Z-score (min 2 data points)
         if len(df) > 1 and not df[existing_numeric_cols].empty:
             # Hitung Z-score pada data numerik
+           # ... deteksi z-score ...
             z_scores = np.abs(stats.zscore(df[existing_numeric_cols]))
-
-            # Buat filter untuk data yang bukan outlier (Z-score < 3)
             non_outlier_mask = (z_scores < 3).all(axis=1)
             outlier_mask = ~non_outlier_mask
 
-            # --- DEBUG: Tampilkan data yang dianggap outlier (sebelum dihapus) ---
             if outlier_mask.any():
-                st.warning("‼️ Data yang terdeteksi sebagai outlier dan akan DIHAPUS:")
+                st.warning("‼️ Data yang terdeteksi sebagai outlier (tidak dihapus otomatis):")
                 st.dataframe(df[outlier_mask])
+                # Opsional: beri info ke user untuk review manual
 
-            # Hapus outlier
-            df = df[non_outlier_mask]
-
+            # TIDAK MENGHAPUS data
+            # df = df[non_outlier_mask]  # <-- DIHAPUS/BERI KOMENTAR
         else:
             st.info("Tidak cukup data untuk melakukan deteksi outlier atau tidak ada kolom numerik yang relevan.")
 
@@ -1176,12 +1174,12 @@ def main():
         if st.button("🚀 Generate Predictions", type="primary"):
             with st.spinner("Training models and generating predictions..."):
                 
-                if prediction_method == "Machine Learning (Ensemble) " and ML_AVAILABLE:           
+                if prediction_method == "Machine Learning (Ensemble)" and ML_AVAILABLE:           
                     st.info("Proses lambat. Menggabungkan 3 model terbaik....")
                     predictions = train_and_predict_ensemble(df, days_ahead)
-                    method_used = "ML Ensemble (Voting Regressor)"
+                    method_used = "Machine Learning (Ensemble)"
                 
-                elif prediction_method == "ML (Uji Silang & Model Terbaik)" and ML_AVAILABLE:
+                elif prediction_method == "Machine Learning (Uji Silang)" and ML_AVAILABLE:
                     st.info("Menjalankan proses evaluasi mendalam dengan Cross-Validation untuk menemukan model terbaik...")
             
                     # 1. Jalankan evaluasi yang ketat untuk menemukan model terbaik
@@ -1191,7 +1189,7 @@ def main():
                         # 2. Ambil nama model terbaik
                         best_performer = evaluation_results_df.sort_values(by='Rata-rata MAE').iloc[0]
                         best_model_name = best_performer['Model']
-                        st.success(f"Model terbaik berdasarkan uji silang: **{best_model_name}**. Melatih ulang model ini pada semua data untuk prediksi akhir...")
+                        st.success(f"Machine Learning (Uji Silang): **{best_model_name}**. Melatih ulang model ini pada semua data untuk prediksi akhir...")
 
                         # 3. Latih ulang HANYA model terbaik pada 100% data dan buat prediksi
                         # (Ini menggunakan logika dari train_and_predict_single_model yang kita bahas sebelumnya)
@@ -1200,7 +1198,7 @@ def main():
                     else:
                         st.error("Gagal melakukan evaluasi model. Beralih ke Simple Trend.")
                         predictions = simple_prediction(df, days_ahead)
-                        method_used = "Simple Trend (ML evaluation failed)"
+                        method_used = "Simple Trend"
                
                 # (BAGIAN BARU) Logika untuk metode Direct Prediction
                 elif prediction_method == "Machine Learning (Direct)" and ML_AVAILABLE:
@@ -1222,17 +1220,17 @@ def main():
 
                     else:
                         predictions = simple_prediction(df, days_ahead)
-                        method_used = "Simple Trend (ML training failed)"
+                        method_used = "Simple Trend"
 
                 # (BAGIAN LAMA YANG DISESUAIKAN) Logika untuk metode Iterative    
                 
-                elif prediction_method == "Machine Learning" and ML_AVAILABLE:
+                elif prediction_method == "Machine Learning (Iterative)" and ML_AVAILABLE:
                     # Train ML models
                     model_info, feature_cols, model_scores = train_ml_models(df)
                    
                     if model_info is not None:
                         predictions = make_predictions(model_info, feature_cols, df, days_ahead)
-                        method_used = "Machine Learning"
+                        method_used = "Machine Learning (Iterative)"
                         
                         # Tampilkan performa model (hanya untuk metode iteratif)
                         if model_scores:
@@ -1247,7 +1245,7 @@ def main():
                                     st.metric(f"{model_name} - RMSE", f"$ {np.sqrt(scores['MSE']):,.0f}")
                     else:
                         predictions = simple_prediction(df, days_ahead)
-                        method_used = "Simple Trend (ML training failed)"
+                        method_used = "Simple Trend"
                       
                 # Logika untuk Simple Trend  
                 else:

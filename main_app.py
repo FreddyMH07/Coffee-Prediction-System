@@ -1008,21 +1008,16 @@ def main():
             new_google_trend = st.number_input("Google Trend Score (0-100)", min_value=0, max_value=100, 
             value=50  # Gunakan nilai tengah sebagai default
             )
-            if st.button("💾 Add Data"):
-                # Calculate derived values based on current input
-                # Note: True price_change_pct and momentum (based on prev day)
-                # will be calculated in clean_data/create_features after loading ALL data.
-                
-                # price_change ini masih new_close - new_open, bukan perubahan harian
-                temp_price_change = new_close - new_open
-                temp_price_change_pct = (temp_price_change / new_open) if new_open > 0 else 0
-
-                daily_range = new_high - new_low
-                day_of_week = new_date.weekday() + 1
+            
+            # price_change ini masih new_close - new_open, bukan perubahan harian
+            temp_price_change = new_close - new_open
+            temp_price_change_pct = (temp_price_change / new_open) if new_open > 0 else 0
+            daily_range = new_high - new_low
+            day_of_week = new_date.weekday() + 1
                 
                 
                 # Siapkan data dalam bentuk dictionary
-                new_data_dict = {
+            new_data_dict = {
                     'tanggal': new_date,
                     'harga_penutupan': new_close,
                     'harga_pembukaan': new_open,
@@ -1039,7 +1034,18 @@ def main():
                     'google_trend': new_google_trend,
                     'synthesized': False
                 }
-                
+            if st.button("💾 Add Data"):
+                    # Calculate derived values based on current input
+                    # Note: True price_change_pct and momentum (based on prev day)
+                    # will be calculated in clean_data/create_features after loading ALL data.
+                success = coffee_system.add_new_data(new_data_dict)
+                if success:
+                            st.success("✅ Data berhasil ditambahkan.")
+                            st.cache_data.clear()
+                            st.rerun()
+                else:
+                            st.error("❌ Gagal menambahkan data.")
+
             st.markdown("### 📁 Import Data Excel/CSV")
             uploaded_file = st.file_uploader(
                 "Upload file Excel/CSV:",

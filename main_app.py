@@ -303,10 +303,12 @@ class CoffeePredictionSystem:
             return False
         
         try:
-            df_new = pd.DataFrame([new_data_dict])
-                # PERBAIKAN: Susun ulang kolom df_new agar sesuai dengan urutan kolom di database
-            # yang telah Anda definisikan di self.db_column_order
-            # Pastikan self.db_column_order sudah didefinisikan di __init__
+            # ✅ PERBAIKAN: Konversi tanggal ke format .date() agar konsisten
+            if isinstance(new_data_dict['tanggal'], pd.Timestamp):
+                new_data_dict['tanggal'] = new_data_dict['tanggal'].date()
+                df_new = pd.DataFrame([new_data_dict])
+                
+             # ✅ Susun ulang kolom sesuai urutan
             if hasattr(self, 'db_column_order'):
                 df_new = df_new[self.db_column_order]
             else:
@@ -448,6 +450,19 @@ def create_features(df):
     
     # 8. Hapus semua baris yang mengandung NaN setelah membuat fitur
     features_df = features_df.fillna(method='ffill').fillna(method='bfill').fillna(0)
+    
+        # ======================================
+    # Tambahkan kolom bantu: is_outlier
+    # ======================================
+    q1 = features_df['harga_penutupan'].quantile(0.25)
+    q3 = features_df['harga_penutupan'].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+
+    features_df['is_outlier'] = ~features_df['harga_penutupan'].between(lower_bound, upper_bound)
+
+    
     return features_df
 
 # Fungsi untuk menghitung semua metrik
@@ -941,8 +956,19 @@ def main():
 
     # Ambil tanggal hari ini sebagai titik awal
         today = datetime.now().date()
-        df[df['tanggal'] == today] 
-    
+        # Pastikan df sudah dimuat sebelumnya (jika belum, panggil coffee_system.load_data())
+        if df is None or df.empty:
+            st.error("❌ Data belum dimuat.")
+            return
+        
+        # Pastikan tanggal sudah bertipe datetime.date
+        if not pd.api.types.is_datetime64_any_dtype(df['tanggal']):
+            df['tanggal'] = pd.to_datetime(df['tanggal'])
+
+            df['tanggal'] = df['tanggal'].dt.date
+
+        # Misal ingin filter data hari ini
+        df_today = df[df['tanggal'] == today]
     # Atur tanggal prediksi default (30 hari dari sekarang)
         default_prediction_date = today + timedelta(days=30)
 
@@ -1070,6 +1096,8 @@ def main():
                         df_import = pd.read_csv(uploaded_file)
                     else:
                         df_import = pd.read_excel(uploaded_file)
+                        # 🟢 Konversi tanggal di sini setelah file berhasil dibaca
+                        df_import['tanggal'] = pd.to_datetime(df_import['tanggal']).dt.date
                 except Exception as e:
                     st.error(f"❌ Gagal membaca file: {e}")
                     df_import = None

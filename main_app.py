@@ -1101,13 +1101,15 @@ def main():
     
     # Load data
     with st.spinner("Loading coffee data..."):
-        df['tanggal'] = pd.to_datetime(df['tanggal']).dt.date
         df = coffee_system.load_data()
-        
         if df is None or df.empty:
             st.error("❌ Failed to load data")
             return
         
+        # Format tanggal jika tidak otomatis terdeteksi
+        df['tanggal'] = pd.to_datetime(df['tanggal']).dt.date
+
+        # Statistik atau proses lanjutan
         stats = coffee_system.get_statistics(df)
     
     # Main dashboard
